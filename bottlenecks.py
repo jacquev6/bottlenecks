@@ -106,7 +106,7 @@ def report(file_names):
             [1 - p + p / parallelism for parallelism in parallelisms],
             "--",
             linewidth=0.5,
-            # label=f"Amdahl's law (p={p})",
+            color="grey",
         )
 
     for name, durations in data.items():
@@ -119,7 +119,6 @@ def report(file_names):
 
     ax.set_xlabel("Parallelism")
     ax.set_ylabel("Duration (s)")
-    ax.grid(True)
     ax.set_xlim(left=1, right=max(parallelisms))
     ax.set_ylim(bottom=0, top=1)
     # ax.set_y
