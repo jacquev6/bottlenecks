@@ -18,6 +18,7 @@ Open questions
 ==============
 
 - Why does `cpu-multiplication` follow Amdahl's law way better than `cpu-trigonometry`? I would have assumed both are purely compute-bound.
+- Would using [`select`](https://linux.die.net/man/2/select)-based non-blocking I/O help saturate the disk's bandwidth with fewer threads in `disk-write`?
 
 Report
 ======
@@ -37,6 +38,7 @@ The thin dashed lines are representations of [Amdahl's law](https://en.wikipedia
 
 ![Duration vs. parallelism](build/duration-vs-parallelism.png)
 
-You should see that:
+On my machine, I can see that:
 - `cpu-multiplication` follows Amdahl's law closely, for $p$=100%: it's purely compute-bound and does benefit from any additional compute resource
-- `ram-bandwidth-copy` gains from a second thread, but is quite flat for 3 or more threads: it reaches the RAM's bandwidth and adding compute power doesn't help
+- `ram-bandwidth-copy` gains from a second thread, but is quite flat for 3 or more threads: it reaches the RAM's bandwidth and adding compute power doesn't help. It even makes things worse as we can see the duration increasing slowly for 6 threads and more
+- `disk-write` follows Amdahl's law closely for $p$=90% until 8 threads, but flattens for 9 threads and more: it reaches the disk's bandwidth

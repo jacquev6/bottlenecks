@@ -53,7 +53,7 @@ def calibrate(program, target_duration, tolerance):
 @click.argument("program")
 @click.argument("size")
 @click.option("--min-parallelism", default=1)
-@click.option("--max-parallelism", default=8)
+@click.option("--max-parallelism", default=16)
 def run(program, size, min_parallelism, max_parallelism):
     durations = {}
     for parallelism in range(min_parallelism, max_parallelism + 1):
