@@ -1,3 +1,5 @@
+// Copyright 2022 Vincent Jacques
+
 #include <stdlib.h>
 #include <math.h>
 

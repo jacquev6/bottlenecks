@@ -1,3 +1,5 @@
+<!-- Copyright 2022 Vincent Jacques -->
+
 'bottlenecks' is an attempt to demonstrate the different performance bottlenecks that can appear in computer programs.
 
 It's currently limited to programs running only on a CPU.
