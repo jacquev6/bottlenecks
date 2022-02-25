@@ -166,6 +166,7 @@ def report(file_names):
     import matplotlib.pyplot as plt  # Don't import at top-level because:
     # - it's quite long
     # - it calls a subprocess during initialization, which polutes resource.getrusage
+    # - logging.basicConfig must be called before importing, to silence a warning
 
     results_by_program = {}
     for file_name in file_names:
