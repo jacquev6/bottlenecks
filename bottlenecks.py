@@ -98,7 +98,7 @@ def run_monitored(command, parallelism, warn_about_accuracy=True):
                 with process.oneshot():
                     instant_metrics.cpu_percent.append(process.cpu_percent())
             except (psutil.AccessDenied, psutil.NoSuchProcess):
-                logging.INFO("Exception (psutil.AccessDenied, psutil.NoSuchProcess) happened")
+                logging.info("Exception (psutil.AccessDenied, psutil.NoSuchProcess) happened")
                 instant_metrics.cpu_percent[:] = instant_metrics.cpu_percent[:len(instant_metrics.timestamps)]
             else:
                 instant_metrics.timestamps.append(now)
