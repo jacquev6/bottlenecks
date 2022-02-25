@@ -115,6 +115,11 @@ def run_monitored(command, parallelism, warn_about_accuracy=True):
             except (psutil.AccessDenied, psutil.NoSuchProcess):
                 logging.info("Exception (psutil.AccessDenied, psutil.NoSuchProcess) happened")
                 instant_metrics.cpu_percent[:] = instant_metrics.cpu_percent[:len(instant_metrics.timestamps)]
+                instant_metrics.user_time_s[:] = instant_metrics.user_time_s[:len(instant_metrics.timestamps)]
+                instant_metrics.system_time_s[:] = instant_metrics.system_time_s[:len(instant_metrics.timestamps)]
+                instant_metrics.memory[:] = instant_metrics.memory[:len(instant_metrics.timestamps)]
+                instant_metrics.io[:] = instant_metrics.io[:len(instant_metrics.timestamps)]
+                instant_metrics.context_switches[:] = instant_metrics.context_switches[:len(instant_metrics.timestamps)]
             else:
                 instant_metrics.timestamps.append(now)
         else:
