@@ -275,27 +275,12 @@ def report(file_names):
         "build/context-switches-per-sec-vs-parallelism.png",
     )
 
-    cpu_fig, cpu_axes = plt.subplots(len(results_by_program), figsize=(8, 3 * len(results_by_program)), layout="constrained")
-
-    for program_index, (program, results_by_parallelism) in enumerate(results_by_program.items()):
-        cpu_ax = cpu_axes[program_index]
-        for parallelism, result in results_by_parallelism.items():
-            cpu_ax.set_title(f"{program}")
-            cpu_ax.plot(
-                result.instant_metrics.timestamps,
-                result.instant_metrics.cpu_percent,
-                "-o",
-                label=f"{parallelism} threads",
-            )
-
-    for cpu_ax in cpu_axes:
-        cpu_ax.set_xlabel("Time (s)")
-        cpu_ax.set_ylabel("CPU usage (%)")
-        cpu_ax.set_xlim(left=0)
-        cpu_ax.set_ylim(bottom=0)
-        cpu_ax.grid()
-        cpu_ax.legend()
-    cpu_fig.savefig("build/instant-cpu-usage.png", dpi=300)
+    make_figure_something_vs_time(
+        results_by_program,
+        "CPU usage (%)",
+        lambda instant_metrics: instant_metrics.cpu_percent,
+        "build/instant-cpu-usage.png"
+    )
 
 
 def make_figure_something_vs_parallelism(
@@ -336,6 +321,39 @@ def make_figure_something_vs_parallelism(
         ax.grid()
     ax.legend()
     fig.savefig(file_name, dpi=300)
+
+
+def make_figure_something_vs_time(
+    results_by_program,
+    something_label,
+    main_plot,
+    file_name,
+):
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(len(results_by_program), figsize=(8, 3 * len(results_by_program)), layout="constrained")
+
+    for program_index, (program, results_by_parallelism) in enumerate(results_by_program.items()):
+        ax = axes[program_index]
+        for parallelism, result in results_by_parallelism.items():
+            ax.set_title(f"{program}")
+            ax.plot(
+                result.instant_metrics.timestamps,
+                main_plot(result.instant_metrics),
+                "-o",
+                label=f"{parallelism} threads",
+            )
+
+    for ax in axes:
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel(something_label)
+        ax.set_xlim(left=0)
+        ax.set_ylim(bottom=0)
+        ax.grid()
+        ax.legend()
+
+    fig.savefig(file_name, dpi=300)
+
 
 
 if __name__ == "__main__":
