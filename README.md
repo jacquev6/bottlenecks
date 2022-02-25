@@ -75,3 +75,9 @@ Observations:
 ![Context switches vs. parallelism](build/context-switches-vs-parallelism.png)
 
 ![Context switches per second vs. parallelism](build/context-switches-per-sec-vs-parallelism.png)
+
+## Instant metrics
+
+### CPU usage
+
+![CPU usage](build/instant-cpu-usage.png)

@@ -2,6 +2,8 @@
 
 # Copyright 2022 Vincent Jacques
 
+from typing import List
+
 import dataclasses
 import json
 import logging
@@ -9,14 +11,11 @@ import multiprocessing
 import os
 import resource
 import subprocess
-import sys
 import textwrap
 import time
 
 import click
-
-
-logging.basicConfig(level=logging.INFO)
+import psutil
 
 
 @click.group()
@@ -33,21 +32,23 @@ def main():
 @click.option("--target-duration", show_default=True, default=10, metavar="TARGET_DURATION", help="The target duration, in seconds")
 @click.option("--tolerance", show_default=True, default=0.05, metavar="TOLERANCE", help="Stop when duration is within TOLERANCE percents of TARGET_DURATION")
 def calibrate(program, target_duration, tolerance):
+    logging.basicConfig(level=logging.INFO)
+
     size = 0.5
     duration = 0
     while duration < target_duration:
         lo_size = size
         size *= 2
-        duration = run_monitored([program, str(int(size))], 1).clock_duration_s
+        duration = run_monitored([program, str(int(size))], 1, warn_about_accuracy=False).clock_duration_s
     hi_size = size
     while abs(duration - target_duration) / target_duration > tolerance:
         size = (lo_size + hi_size) / 2
-        duration = run_monitored([program, str(int(size))], 1).clock_duration_s
+        duration = run_monitored([program, str(int(size))], 1, warn_about_accuracy=False).clock_duration_s
         if duration > target_duration:
             hi_size = size
         else:
             lo_size = size
-    logging.info(f"Duration reached: {duration}s, relative error: {abs(duration - target_duration) / target_duration}")
+    logging.info(f"Duration reached: {duration:.2f}s, relative error: {abs(duration - target_duration) / target_duration:.2f}")
     print(int(size))
 
 
@@ -57,26 +58,64 @@ def calibrate(program, target_duration, tolerance):
 @click.option("--min-parallelism", default=1)
 @click.option("--max-parallelism", default=int(1.5 * multiprocessing.cpu_count()))
 def run(program, size, min_parallelism, max_parallelism):
+    logging.basicConfig(level=logging.INFO)
+
     for parallelism in range(min_parallelism, max_parallelism + 1):
         result = run_monitored([program, size], parallelism)
         print(json.dumps(dataclasses.asdict(result)))
 
 
-def run_monitored(command, parallelism):
+def run_monitored(command, parallelism, warn_about_accuracy=True):
     logging.debug(f"Running {command} with {parallelism} threads")
 
+    instant_metrics = MonitoredRunInstantMetrics(
+        timestamps=[],
+        cpu_percent=[],
+    )
+    interval = 0.1
+    iteration = 1
+
     usage_before = resource.getrusage(resource.RUSAGE_CHILDREN)
+
     time_before = time.perf_counter()
-    subprocess.run(
+    process = psutil.Popen(
         command,
         env=dict(os.environ, OMP_NUM_THREADS=str(parallelism)),
-        check=True,
     )
-    time_after = time.perf_counter()
+
+    start_time = time.perf_counter()
+
+    process.cpu_percent()  # Ignore first, meaningless 0.0 returned, as per https://psutil.readthedocs.io/en/latest/#psutil.Process.cpu_percent
+
+    while process.returncode is None:
+        try:
+            process.communicate(timeout=start_time + iteration * interval - time.perf_counter())
+        except subprocess.TimeoutExpired:
+            now = time.perf_counter() - start_time
+            iteration += 1
+            logging.debug(f"{command} is still running after {now:.4f}s")
+            try:
+                with process.oneshot():
+                    instant_metrics.cpu_percent.append(process.cpu_percent())
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                logging.INFO("Exception (psutil.AccessDenied, psutil.NoSuchProcess) happened")
+                instant_metrics.cpu_percent[:] = instant_metrics.cpu_percent[:len(instant_metrics.timestamps)]
+            else:
+                instant_metrics.timestamps.append(now)
+        else:
+            time_after = time.perf_counter()
+
     usage_after = resource.getrusage(resource.RUSAGE_CHILDREN)
 
+
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, command)
+
     clock_duration_s = time_after - time_before
-    logging.info(f"Running {command} with {parallelism} threads took {clock_duration_s:.2f}s")
+    if clock_duration_s > 1:
+        logging.info(f"Running {command} with {parallelism} threads took {clock_duration_s:.2f}s")
+    elif warn_about_accuracy:
+        logging.warning(f"Running {command} with {parallelism} threads took {clock_duration_s:.2f}s. This is too quick to guaranty accurate measurements")
 
     return MonitoredRunResult(
         parallelism=parallelism,
@@ -94,10 +133,17 @@ def run_monitored(command, parallelism):
         output_blocks=usage_after.ru_oublock - usage_before.ru_oublock,
         voluntary_context_switches=usage_after.ru_nvcsw - usage_before.ru_nvcsw,
         involuntary_context_switches=usage_after.ru_nivcsw - usage_before.ru_nivcsw,
+        instant_metrics=instant_metrics,
     )
 
 
 @dataclasses.dataclass
+class MonitoredRunInstantMetrics:
+    timestamps: List[float]
+    cpu_percent: List[float]
+
+
+@dataclasses.dataclass  # @todo (Python >= 3.10) Use `kw_only`
 class MonitoredRunResult:
     parallelism: int
     clock_duration_s: float
@@ -109,11 +155,14 @@ class MonitoredRunResult:
     output_blocks: int
     voluntary_context_switches: int
     involuntary_context_switches: int
+    instant_metrics: MonitoredRunInstantMetrics
 
 
 @main.command()
 @click.argument("file-names", nargs=-1)
 def report(file_names):
+    logging.basicConfig(level=logging.ERROR)
+
     import matplotlib.pyplot as plt  # Don't import at top-level because:
     # - it's quite long
     # - it calls a subprocess during initialization, which polutes resource.getrusage
@@ -126,6 +175,7 @@ def report(file_names):
             results_by_program[program] = results_by_parallelism
             for line in f:
                 result = MonitoredRunResult(**json.loads(line))
+                result = dataclasses.replace(result, instant_metrics=MonitoredRunInstantMetrics(**result.instant_metrics))
                 results_by_parallelism[result.parallelism] = result
 
     all_parallelisms = sorted(set(k for d in results_by_program.values() for k in d.keys()))
@@ -139,6 +189,8 @@ def report(file_names):
     context_switches_fig, context_switches_ax = plt.subplots(figsize=(8, 6), layout="constrained")
     context_switches_per_sec_fig, context_switches_per_sec_ax = plt.subplots(figsize=(8, 6), layout="constrained")
 
+    cpu_fig, cpu_axes = plt.subplots(len(results_by_program), figsize=(8, 3 * len(results_by_program)), layout="constrained")
+
     for n in range(10):
         p = (n + 1) / 10
         duration_ax.plot(
@@ -149,7 +201,7 @@ def report(file_names):
             color="grey",
         )
 
-    for program, results_by_parallelism in results_by_program.items():
+    for program_index, (program, results_by_parallelism) in enumerate(results_by_program.items()):
         parallelisms = sorted(results_by_parallelism.keys())
         duration_ax.plot(
             parallelisms,
@@ -247,6 +299,16 @@ def report(file_names):
             label=f"{program}",
         )
 
+        cpu_ax = cpu_axes[program_index]
+        for parallelism, result in results_by_parallelism.items():
+            cpu_ax.set_title(f"{program}")
+            cpu_ax.plot(
+                result.instant_metrics.timestamps,
+                result.instant_metrics.cpu_percent,
+                "-o",
+                label=f"{parallelism} threads",
+            )
+
     duration_ax.set_xlabel("Parallelism")
     duration_ax.set_ylabel("Duration (normalized)")
     duration_ax.set_xlim(left=1, right=max(all_parallelisms))
@@ -310,6 +372,14 @@ def report(file_names):
     context_switches_per_sec_ax.legend()
     context_switches_per_sec_fig.savefig("build/context-switches-per-sec-vs-parallelism.png", dpi=300)
 
+    for cpu_ax in cpu_axes:
+        cpu_ax.set_xlabel("Time (s)")
+        cpu_ax.set_ylabel("CPU usage (%)")
+        cpu_ax.set_xlim(left=0)
+        cpu_ax.set_ylim(bottom=0)
+        cpu_ax.grid()
+        cpu_ax.legend()
+    cpu_fig.savefig("build/instant-cpu-usage.png", dpi=300)
 
 if __name__ == "__main__":
     main()
