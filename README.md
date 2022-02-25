@@ -33,7 +33,6 @@ Definition of the programs being tested
 Open questions
 ==============
 
-- Why does `cpu-multiplication` follow Amdahl's law way better than `cpu-trigonometry`? I would have assumed both are purely compute-bound.
 - Would using [`select`](https://linux.die.net/man/2/select)-based non-blocking I/O help saturate the disk's bandwidth with fewer threads in `disk-write`?
 
 Excerpts from the report
