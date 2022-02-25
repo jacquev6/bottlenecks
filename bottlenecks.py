@@ -11,6 +11,7 @@ import multiprocessing
 import os
 import resource
 import subprocess
+import sys
 import textwrap
 import time
 
@@ -39,6 +40,9 @@ def calibrate(program, target_duration, tolerance):
     while duration < target_duration:
         lo_size = size
         size *= 2
+        if size >= 2 ** 30:
+            print("PROGRAM is too quick", file=sys.stderr)
+            sys.exit(1)
         duration = run_monitored([program, str(int(size))], 1, warn_about_accuracy=False).clock_duration_s
     hi_size = size
     while abs(duration - target_duration) / target_duration > tolerance:
@@ -123,10 +127,10 @@ def run_monitored(command, parallelism, warn_about_accuracy=True):
         raise subprocess.CalledProcessError(process.returncode, command)
 
     clock_duration_s = time_after - time_before
-    if clock_duration_s > 1:
-        logging.info(f"Running {command} with {parallelism} threads took {clock_duration_s:.2f}s")
-    elif warn_about_accuracy:
+    if warn_about_accuracy and clock_duration_s < 1:
         logging.warning(f"Running {command} with {parallelism} threads took {clock_duration_s:.2f}s. This is too quick to guaranty accurate measurements")
+    else:
+        logging.info(f"Running {command} with {parallelism} threads took {clock_duration_s:.2f}s")
 
     return MonitoredRunResult(
         parallelism=parallelism,

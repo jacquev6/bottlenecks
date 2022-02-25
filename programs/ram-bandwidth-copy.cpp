@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
   const std::size_t size = 1024 * 1024 * std::atol(argv[1]);
 
   std::vector<int> a(size, 42);
-  std::vector<int> b(size, 0);
+  std::vector<int> b(size);
 
   for (int i = 0; i != 100; ++i) {
     #pragma omp parallel for
@@ -18,6 +18,4 @@ int main(int argc, char* argv[]) {
       b[j] = a[j];
     }
   }
-
-  return b[0] == 42 && b[size - 1] == 42 ? 0 : 1;
 }
