@@ -29,6 +29,7 @@ Report
 
 - `cpu-multiplication` does only floating-point multiplications, using very little memory (a few bytes per thread)
 - `cpu-trigonometry` computes cosines and arc-cosines, also using very little memory
+- `disk-write` writes 1000 large-ish files on the disk
 - `ram-bandwidth-copy` copies a large-ish memory array to another one
 
 ## Whole-run metrics
@@ -60,14 +61,17 @@ Observations:
 ### Page faults vs. parallelism
 
 ![Page faults vs. parallelism](build/page-faults-vs-parallelism.png)
+
 ![Page faults per second vs. parallelism](build/page-faults-per-sec-vs-parallelism.png)
 
 ### Outputs vs. parallelism
 
 ![Outputs vs. parallelism](build/io-vs-parallelism.png)
+
 ![Outputs per second vs. parallelism](build/io-per-sec-vs-parallelism.png)
 
 ### Context switches vs. parallelism
 
 ![Context switches vs. parallelism](build/context-switches-vs-parallelism.png)
+
 ![Context switches per second vs. parallelism](build/context-switches-per-sec-vs-parallelism.png)
