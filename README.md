@@ -60,11 +60,14 @@ Observations:
 ### Page faults vs. parallelism
 
 ![Page faults vs. parallelism](build/page-faults-vs-parallelism.png)
+![Page faults per second vs. parallelism](build/page-faults-per-sec-vs-parallelism.png)
 
 ### Outputs vs. parallelism
 
 ![Outputs vs. parallelism](build/io-vs-parallelism.png)
+![Outputs per second vs. parallelism](build/io-per-sec-vs-parallelism.png)
 
 ### Context switches vs. parallelism
 
 ![Context switches vs. parallelism](build/context-switches-vs-parallelism.png)
+![Context switches per second vs. parallelism](build/context-switches-per-sec-vs-parallelism.png)
