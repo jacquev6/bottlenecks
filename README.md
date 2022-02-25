@@ -52,7 +52,9 @@ Observations:
 
 ### System and user times vs. parallelism
 
-![System and user times vs. parallelism](build/times-vs-parallelism.png)
+![User time vs. parallelism](build/user-time-vs-parallelism.png)
+
+![System time vs. parallelism](build/system-time-vs-parallelism.png)
 
 Observations:
 - `cpu-multiplication` has zero system time, as expected. Its user time is globally constant because it always does the same computations. It raises slightly because of the overhead of having several threads.
@@ -66,9 +68,9 @@ Observations:
 
 ### Outputs vs. parallelism
 
-![Outputs vs. parallelism](build/io-vs-parallelism.png)
+![Outputs vs. parallelism](build/outputs-vs-parallelism.png)
 
-![Outputs per second vs. parallelism](build/io-per-sec-vs-parallelism.png)
+![Outputs per second vs. parallelism](build/outputs-per-sec-vs-parallelism.png)
 
 ### Context switches vs. parallelism
 

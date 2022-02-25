@@ -181,125 +181,87 @@ def report(file_names):
 
     all_parallelisms = sorted(set(k for d in results_by_program.values() for k in d.keys()))
 
-    duration_fig, duration_ax = plt.subplots(figsize=(8, 6), layout="constrained")
-    time_fig, time_ax = plt.subplots(figsize=(8, 6), layout="constrained")
-    page_faults_fig, page_faults_ax = plt.subplots(figsize=(8, 6), layout="constrained")
-    page_faults_per_sec_fig, page_faults_per_sec_ax = plt.subplots(figsize=(8, 6), layout="constrained")
-    io_fig, io_ax = plt.subplots(figsize=(8, 6), layout="constrained")
-    io_per_sec_fig, io_per_sec_ax = plt.subplots(figsize=(8, 6), layout="constrained")
-    context_switches_fig, context_switches_ax = plt.subplots(figsize=(8, 6), layout="constrained")
-    context_switches_per_sec_fig, context_switches_per_sec_ax = plt.subplots(figsize=(8, 6), layout="constrained")
+    make_figure_something_vs_parallelism(
+        results_by_program,
+        "Duration (normalized)",
+        lambda program, parallelism: results_by_program[program][parallelism].clock_duration_s / results_by_program[program][min(results_by_program[program].keys())].clock_duration_s,
+        "build/duration-vs-parallelism.png",
+        grid=False,
+        additional_plots=[
+            ((
+                all_parallelisms,
+                [1 - p + p / parallelism for parallelism in all_parallelisms],
+                "--",
+            ), dict(
+                linewidth=0.5,
+                color="grey",
+            ))
+            for p in (
+                (n + 1) / 10
+                for n in range(10)
+            )
+        ]
+    )
+
+    make_figure_something_vs_parallelism(
+        results_by_program,
+        "User time (s)",
+        lambda program, parallelism: results_by_program[program][parallelism].user_time_s,
+        "build/user-time-vs-parallelism.png",
+    )
+
+    make_figure_something_vs_parallelism(
+        results_by_program,
+        "System time (s)",
+        lambda program, parallelism: results_by_program[program][parallelism].system_time_s,
+        "build/system-time-vs-parallelism.png",
+    )
+
+    make_figure_something_vs_parallelism(
+        results_by_program,
+        "Page faults",
+        lambda program, parallelism: results_by_program[program][parallelism].minor_page_faults + results_by_program[program][parallelism].major_page_faults,
+        "build/page-faults-vs-parallelism.png",
+    )
+
+    make_figure_something_vs_parallelism(
+        results_by_program,
+        "Page faults (/s)",
+        lambda program, parallelism: (results_by_program[program][parallelism].minor_page_faults + results_by_program[program][parallelism].major_page_faults) / results_by_program[program][parallelism].clock_duration_s,
+        "build/page-faults-per-sec-vs-parallelism.png",
+    )
+
+    make_figure_something_vs_parallelism(
+        results_by_program,
+        "Outputs (blocks)",
+        lambda program, parallelism: results_by_program[program][parallelism].output_blocks,
+        "build/outputs-vs-parallelism.png",
+    )
+
+    make_figure_something_vs_parallelism(
+        results_by_program,
+        "Outputs (blocks/s)",
+        lambda program, parallelism: results_by_program[program][parallelism].output_blocks / results_by_program[program][parallelism].clock_duration_s,
+        "build/outputs-per-sec-vs-parallelism.png",
+    )
+
+    make_figure_something_vs_parallelism(
+        results_by_program,
+        "Context switches",
+        lambda program, parallelism: results_by_program[program][parallelism].involuntary_context_switches + results_by_program[program][parallelism].voluntary_context_switches,
+        "build/context-switches-vs-parallelism.png",
+    )
+
+    make_figure_something_vs_parallelism(
+        results_by_program,
+        "Context switches (/s)",
+        lambda program, parallelism: (results_by_program[program][parallelism].involuntary_context_switches + results_by_program[program][parallelism].voluntary_context_switches) / results_by_program[program][parallelism].clock_duration_s,
+        "build/context-switches-per-sec-vs-parallelism.png",
+    )
 
     cpu_fig, cpu_axes = plt.subplots(len(results_by_program), figsize=(8, 3 * len(results_by_program)), layout="constrained")
 
-    for n in range(10):
-        p = (n + 1) / 10
-        duration_ax.plot(
-            all_parallelisms,
-            [1 - p + p / parallelism for parallelism in all_parallelisms],
-            "--",
-            linewidth=0.5,
-            color="grey",
-        )
-
     for program_index, (program, results_by_parallelism) in enumerate(results_by_program.items()):
-        parallelisms = sorted(results_by_parallelism.keys())
-        duration_ax.plot(
-            parallelisms,
-            [
-                results_by_parallelism[parallelism].clock_duration_s / results_by_parallelism[min(parallelisms)].clock_duration_s
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program}",
-        )
-
-        time_ax.plot(
-            parallelisms,
-            [
-                results_by_parallelism[parallelism].user_time_s
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program} user",
-        )
-        time_ax.plot(
-            parallelisms,
-            [
-                results_by_parallelism[parallelism].system_time_s
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program} system",
-        )
-
-        page_faults_ax.plot(
-            parallelisms,
-            [
-                results_by_parallelism[parallelism].minor_page_faults
-                + results_by_parallelism[parallelism].major_page_faults
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program}",
-        )
-
-        page_faults_per_sec_ax.plot(
-            parallelisms,
-            [
-                (results_by_parallelism[parallelism].minor_page_faults
-                + results_by_parallelism[parallelism].major_page_faults)
-                / results_by_parallelism[parallelism].clock_duration_s
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program}",
-        )
-
-        io_ax.plot(
-            parallelisms,
-            [
-                results_by_parallelism[parallelism].output_blocks
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program}",
-        )
-
-        io_per_sec_ax.plot(
-            parallelisms,
-            [
-                results_by_parallelism[parallelism].output_blocks
-                / results_by_parallelism[parallelism].clock_duration_s
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program}",
-        )
-
-        context_switches_ax.plot(
-            parallelisms,
-            [
-                results_by_parallelism[parallelism].voluntary_context_switches
-                + results_by_parallelism[parallelism].involuntary_context_switches
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program}",
-        )
-
-        context_switches_per_sec_ax.plot(
-            parallelisms,
-            [
-                (results_by_parallelism[parallelism].voluntary_context_switches
-                + results_by_parallelism[parallelism].involuntary_context_switches)
-                / results_by_parallelism[parallelism].clock_duration_s
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program}",
-        )
-
         cpu_ax = cpu_axes[program_index]
         for parallelism, result in results_by_parallelism.items():
             cpu_ax.set_title(f"{program}")
@@ -310,69 +272,6 @@ def report(file_names):
                 label=f"{parallelism} threads",
             )
 
-    duration_ax.set_xlabel("Parallelism")
-    duration_ax.set_ylabel("Duration (normalized)")
-    duration_ax.set_xlim(left=1, right=max(all_parallelisms))
-    duration_ax.set_ylim(bottom=0, top=1)
-    duration_ax.legend()
-    duration_fig.savefig("build/duration-vs-parallelism.png", dpi=300)
-
-    time_ax.set_xlabel("Parallelism")
-    time_ax.set_ylabel("Time (s)")
-    time_ax.set_xlim(left=1, right=max(all_parallelisms))
-    time_ax.set_ylim(bottom=0)
-    time_ax.grid()
-    time_ax.legend()
-    time_fig.savefig("build/times-vs-parallelism.png", dpi=300)
-
-    page_faults_ax.set_xlabel("Parallelism")
-    page_faults_ax.set_ylabel("Page faults")
-    page_faults_ax.set_xlim(left=1, right=max(all_parallelisms))
-    page_faults_ax.set_ylim(bottom=0)
-    page_faults_ax.grid()
-    page_faults_ax.legend()
-    page_faults_fig.savefig("build/page-faults-vs-parallelism.png", dpi=300)
-
-    page_faults_per_sec_ax.set_xlabel("Parallelism")
-    page_faults_per_sec_ax.set_ylabel("Page faults (/s)")
-    page_faults_per_sec_ax.set_xlim(left=1, right=max(all_parallelisms))
-    page_faults_per_sec_ax.set_ylim(bottom=0)
-    page_faults_per_sec_ax.grid()
-    page_faults_per_sec_ax.legend()
-    page_faults_per_sec_fig.savefig("build/page-faults-per-sec-vs-parallelism.png", dpi=300)
-
-    io_ax.set_xlabel("Parallelism")
-    io_ax.set_ylabel("Output (blocks)")
-    io_ax.set_xlim(left=1, right=max(all_parallelisms))
-    io_ax.set_ylim(bottom=0)
-    io_ax.grid()
-    io_ax.legend()
-    io_fig.savefig("build/io-vs-parallelism.png", dpi=300)
-
-    io_per_sec_ax.set_xlabel("Parallelism")
-    io_per_sec_ax.set_ylabel("Output (blocks/s)")
-    io_per_sec_ax.set_xlim(left=1, right=max(all_parallelisms))
-    io_per_sec_ax.set_ylim(bottom=0)
-    io_per_sec_ax.grid()
-    io_per_sec_ax.legend()
-    io_per_sec_fig.savefig("build/io-per-sec-vs-parallelism.png", dpi=300)
-
-    context_switches_ax.set_xlabel("Parallelism")
-    context_switches_ax.set_ylabel("Context switches")
-    context_switches_ax.set_xlim(left=1, right=max(all_parallelisms))
-    context_switches_ax.set_ylim(bottom=0)
-    context_switches_ax.grid()
-    context_switches_ax.legend()
-    context_switches_fig.savefig("build/context-switches-vs-parallelism.png", dpi=300)
-
-    context_switches_per_sec_ax.set_xlabel("Parallelism")
-    context_switches_per_sec_ax.set_ylabel("Context switches (/s)")
-    context_switches_per_sec_ax.set_xlim(left=1, right=max(all_parallelisms))
-    context_switches_per_sec_ax.set_ylim(bottom=0)
-    context_switches_per_sec_ax.grid()
-    context_switches_per_sec_ax.legend()
-    context_switches_per_sec_fig.savefig("build/context-switches-per-sec-vs-parallelism.png", dpi=300)
-
     for cpu_ax in cpu_axes:
         cpu_ax.set_xlabel("Time (s)")
         cpu_ax.set_ylabel("CPU usage (%)")
@@ -381,6 +280,47 @@ def report(file_names):
         cpu_ax.grid()
         cpu_ax.legend()
     cpu_fig.savefig("build/instant-cpu-usage.png", dpi=300)
+
+
+def make_figure_something_vs_parallelism(
+    results_by_program,
+    something_label,
+    main_plot,
+    file_name,
+    *,
+    additional_plots=[],
+    grid=True,
+):
+    import matplotlib.pyplot as plt
+
+    all_parallelisms = sorted(set(k for d in results_by_program.values() for k in d.keys()))
+
+    fig, ax = plt.subplots(figsize=(8, 6), layout="constrained")
+
+    for (args, kwds) in additional_plots:
+        ax.plot(*args, **kwds)
+
+    for program, results_by_parallelism in results_by_program.items():
+        parallelisms = sorted(results_by_parallelism.keys())
+        ax.plot(
+            parallelisms,
+            [
+                main_plot(program, parallelism)
+                for parallelism in parallelisms
+            ],
+            "-o",
+            label=f"{program}",
+        )
+
+    ax.set_xlabel("Parallelism")
+    ax.set_ylabel(something_label)
+    ax.set_xlim(left=1, right=max(all_parallelisms))
+    ax.set_ylim(bottom=0)
+    if grid:
+        ax.grid()
+    ax.legend()
+    fig.savefig(file_name, dpi=300)
+
 
 if __name__ == "__main__":
     main()
