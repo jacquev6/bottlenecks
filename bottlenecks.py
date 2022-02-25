@@ -2,7 +2,7 @@
 
 # Copyright 2022 Vincent Jacques
 
-from typing import List
+from typing import Dict, List
 
 import dataclasses
 import json
@@ -71,6 +71,11 @@ def run_monitored(command, parallelism, warn_about_accuracy=True):
     instant_metrics = MonitoredRunInstantMetrics(
         timestamps=[],
         cpu_percent=[],
+        user_time_s=[],
+        system_time_s=[],
+        memory=[],
+        io=[],
+        context_switches=[],
     )
     interval = 0.1
     iteration = 1
@@ -97,6 +102,12 @@ def run_monitored(command, parallelism, warn_about_accuracy=True):
             try:
                 with process.oneshot():
                     instant_metrics.cpu_percent.append(process.cpu_percent())
+                    cpu_times = process.cpu_times()
+                    instant_metrics.user_time_s.append(cpu_times.user)
+                    instant_metrics.system_time_s.append(cpu_times.system)
+                    instant_metrics.memory.append(process.memory_full_info()._asdict())
+                    instant_metrics.io.append(process.io_counters()._asdict())
+                    instant_metrics.context_switches.append(process.num_ctx_switches())
             except (psutil.AccessDenied, psutil.NoSuchProcess):
                 logging.info("Exception (psutil.AccessDenied, psutil.NoSuchProcess) happened")
                 instant_metrics.cpu_percent[:] = instant_metrics.cpu_percent[:len(instant_metrics.timestamps)]
@@ -141,6 +152,11 @@ def run_monitored(command, parallelism, warn_about_accuracy=True):
 class MonitoredRunInstantMetrics:
     timestamps: List[float]
     cpu_percent: List[float]
+    user_time_s: List[float]
+    system_time_s: List[float]
+    memory: List[Dict]
+    io: List[Dict]
+    context_switches: int
 
 
 @dataclasses.dataclass  # @todo (Python >= 3.10) Use `kw_only`
