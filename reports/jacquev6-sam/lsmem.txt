@@ -1,0 +1,8 @@
+RANGE                                  SIZE  STATE REMOVABLE BLOCK NODE  ZONES
+0x0000000000000000-0x000000001fffffff  512M online       yes     0    0   None
+0x0000000020000000-0x000000005fffffff    1G online       yes   1-2    0  DMA32
+0x0000000100000000-0x000000109fffffff 62.5G online       yes 8-132    0 Normal
+
+Memory block size:       512M
+Total online memory:      64G
+Total offline memory:      0B

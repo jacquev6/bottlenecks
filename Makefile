@@ -11,27 +11,44 @@ default: report
 # Inventory #
 #############
 
+# Output directory
+report_directory?=build/report
+
 # Source files
 source_files := $(wildcard programs/*.cpp)
 
 # Intermediate files
 binary_files := $(patsubst programs/%.cpp,build/%,$(source_files))
 calibration_files := $(patsubst programs/%.cpp,build/%.calibrated-size.txt,$(source_files))
-experiment_files := $(patsubst programs/%.cpp,build/%.results.txt,$(source_files))
+experiment_files := $(patsubst programs/%.cpp,$(report_directory)/%.results.txt,$(source_files))
 
 ###############################
 # Secondary top-level targets #
 ###############################
 
 .PHONY: report
-report: run
-	rm -f build/*.png
-	./bottlenecks.py report $(experiment_files) build
+report: report_images report_information | $(report_directory)/report.md
+
+$(report_directory)/report.md:
+	@mkdir -p $(dir $@)
+	cp report.md.tmpl $@
+
+.PHONY: report_images
+report_images: $(experiment_files)
+	@mkdir -p $(report_directory)
+	@rm -f $(report_directory)/*.png
+	./bottlenecks.py report $(experiment_files) $(report_directory)
+
+.PHONY: report_information
+report_information:
+	@mkdir -p $(report_directory)
+	lscpu --output-all >$(report_directory)/lscpu.txt
+	lsmem --output-all >$(report_directory)/lsmem.txt
 
 .PHONY: run
 run: $(experiment_files)
 
-build/%.results.txt: build/%.calibrated-size.txt
+$(report_directory)/%.results.txt: build/%.calibrated-size.txt
 	@mkdir -p $(dir $@)
 	./bottlenecks.py run $(if $(quick),--max-parallelism 4) build/$* $$(cat $^) >$@.tmp
 	mv $@.tmp $@

@@ -30,8 +30,8 @@ def main():
     The value that makes it last for about TARGET_DURATION seconds is then printed on the standard output.
 """))
 @click.argument("program")
-@click.option("--target-duration", show_default=True, default=10, metavar="TARGET_DURATION", help="The target duration, in seconds")
-@click.option("--tolerance", show_default=True, default=0.05, metavar="TOLERANCE", help="Stop when duration is within TOLERANCE percents of TARGET_DURATION")
+@click.option("--target-duration", show_default=True, default=30, metavar="TARGET_DURATION", help="The target duration, in seconds")
+@click.option("--tolerance", show_default=True, default=5, metavar="TOLERANCE", help="Stop when duration is within TOLERANCE percents of TARGET_DURATION")
 def calibrate(program, target_duration, tolerance):
     logging.basicConfig(level=logging.INFO)
 
@@ -45,7 +45,7 @@ def calibrate(program, target_duration, tolerance):
             sys.exit(1)
         duration = run_monitored([program, str(int(size))], 1, warn_about_accuracy=False).clock_duration_s
     hi_size = size
-    while abs(duration - target_duration) / target_duration > tolerance:
+    while abs(duration - target_duration) / target_duration > tolerance / 100:
         size = (lo_size + hi_size) / 2
         duration = run_monitored([program, str(int(size))], 1, warn_about_accuracy=False).clock_duration_s
         if duration > target_duration:
@@ -330,33 +330,41 @@ def make_figure_something_vs_parallelism(
 ):
     import matplotlib.pyplot as plt
 
-    all_parallelisms = sorted(set(k for d in results_by_program.values() for k in d.keys()))
-
-    fig, ax = plt.subplots(figsize=(8, 6), layout="constrained")
+    # @todo Draw only one graph if max parallelism is lower than 12
+    fig, axes = plt.subplots(1, 2, figsize=(8, 6), layout="constrained")
 
     for (args, kwds) in additional_plots:
-        ax.plot(*args, **kwds)
+        for ax in axes:
+            ax.plot(*args, **kwds)
 
     for program, results_by_parallelism in results_by_program.items():
         parallelisms = sorted(results_by_parallelism.keys())
-        ax.plot(
-            parallelisms,
+        for (ax, parallelisms) in zip(
+            axes,
             [
-                main_plot(program, parallelism)
-                for parallelism in parallelisms
-            ],
-            "-o",
-            label=f"{program}",
-        )
+                [parallelism for parallelism in parallelisms if parallelism <= 8],
+                parallelisms,
+            ]
+        ):
+            ax.plot(
+                parallelisms,
+                [
+                    main_plot(program, parallelism)
+                    for parallelism in parallelisms
+                ],
+                "-o",
+                label=f"{program}",
+            )
+            ax.set_xlim(left=1, right=max(parallelisms))
 
-    ax.set_xlabel("Parallelism")
-    ax.set_ylabel(something_label)
-    ax.set_xlim(left=1, right=max(all_parallelisms))
-    ax.set_ylim(bottom=0)
-    if grid:
-        ax.grid()
-    ax.legend()
-    fig.savefig(file_name, dpi=300)
+    for ax in axes:
+        ax.set_xlabel("Parallelism")
+        ax.set_ylabel(something_label)
+        ax.set_ylim(bottom=0)
+        if grid:
+            ax.grid()
+        ax.legend()
+        fig.savefig(file_name, dpi=300)
 
 
 def make_figure_something_vs_time(
@@ -372,6 +380,8 @@ def make_figure_something_vs_time(
     for program_index, (program, results_by_parallelism) in enumerate(results_by_program.items()):
         ax = axes[program_index]
         for parallelism, result in results_by_parallelism.items():
+            if parallelism not in [2 ** i for i in range(8)]:
+                continue
             ax.set_title(f"{program}")
             ax.plot(
                 result.instant_metrics.timestamps,
