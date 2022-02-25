@@ -39,6 +39,6 @@ The thin dashed lines are representations of [Amdahl's law](https://en.wikipedia
 ![Duration vs. parallelism](build/duration-vs-parallelism.png)
 
 On my machine, I can see that:
-- `cpu-multiplication` follows Amdahl's law closely, for $p$=100%: it's purely compute-bound and does benefit from any additional compute resource
+- `cpu-multiplication` follows Amdahl's law closely, for $p$=100%: it's purely compute-bound and does benefit from any additional compute resource... until it reaches the number of physical cores in my processor (14). It looses performance on the 15th thread, when hyperthreading is used, then on the 29th thread when it is greater than the number of hyperthread cores.
 - `ram-bandwidth-copy` gains from a second thread, but is quite flat for 3 or more threads: it reaches the RAM's bandwidth and adding compute power doesn't help. It even makes things worse as we can see the duration increasing slowly for 6 threads and more
 - `disk-write` follows Amdahl's law closely for $p$=90% until 8 threads, but flattens for 9 threads and more: it reaches the disk's bandwidth

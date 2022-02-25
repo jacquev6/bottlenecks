@@ -5,6 +5,7 @@
 import dataclasses
 import json
 import logging
+import multiprocessing
 import os
 import subprocess
 import sys
@@ -53,7 +54,7 @@ def calibrate(program, target_duration, tolerance):
 @click.argument("program")
 @click.argument("size")
 @click.option("--min-parallelism", default=1)
-@click.option("--max-parallelism", default=16)
+@click.option("--max-parallelism", default=int(1.5 * multiprocessing.cpu_count()))
 def run(program, size, min_parallelism, max_parallelism):
     durations = {}
     for parallelism in range(min_parallelism, max_parallelism + 1):
@@ -111,8 +112,8 @@ def report(file_names):
 
     for name, durations in data.items():
         ax.plot(
-            parallelisms,
-            [durations[parallelism] / durations[min(parallelisms)] for parallelism in parallelisms],
+            [parallelism for parallelism in parallelisms if parallelism in durations],
+            [durations[parallelism] / durations[min(parallelisms)] for parallelism in parallelisms if parallelism in durations],
             "-o",
             label=name,
         )
