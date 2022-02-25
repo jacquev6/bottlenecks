@@ -32,14 +32,14 @@ run: $(experiment_files)
 
 build/%.json: build/%.size
 	@mkdir -p $(dir $@)
-	./bottlenecks.py run build/$* $$(cat $^) >$@
+	./bottlenecks.py run $(if $(quick),--max-parallelism 4) build/$* $$(cat $^) >$@
 
 .PHONY: calibrate
 calibrate: $(calibration_files)
 
 build/%.size: build/%
 	@mkdir -p $(dir $@)
-	./bottlenecks.py calibrate $^ >$@
+	./bottlenecks.py calibrate $(if $(quick),--target-duration 4) $^ >$@
 
 .PHONY: build
 build: $(binary_files)

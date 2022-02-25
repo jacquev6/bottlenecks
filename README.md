@@ -14,6 +14,8 @@ Run:
 
 Then have a look at the "Report" section below.
 
+For quicker iterative work on the scripts: `rm -rf build; ./make.sh quick=1`.
+
 Open questions
 ==============
 
