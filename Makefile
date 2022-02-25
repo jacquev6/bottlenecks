@@ -26,7 +26,7 @@ experiment_files := $(patsubst programs/%.cpp,build/%.results.txt,$(source_files
 .PHONY: report
 report: run
 	rm -f build/*.png
-	./bottlenecks.py report $(experiment_files)
+	./bottlenecks.py report $(experiment_files) build
 
 .PHONY: run
 run: $(experiment_files)

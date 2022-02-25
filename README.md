@@ -83,3 +83,11 @@ Observations:
 ### CPU usage
 
 ![CPU usage](build/instant-cpu-usage.png)
+
+### Memory usage
+
+![Memory usage](build/instant-memory-usage.png)
+
+### Outputs
+
+![Outputs](build/instant-outputs.png)

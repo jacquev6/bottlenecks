@@ -180,7 +180,8 @@ class MonitoredRunResult:
 
 @main.command()
 @click.argument("file-names", nargs=-1)
-def report(file_names):
+@click.argument("output-directory")
+def report(file_names, output_directory):
     logging.basicConfig(level=logging.ERROR)
 
     import matplotlib.pyplot as plt  # Don't import at top-level because:
@@ -205,7 +206,7 @@ def report(file_names):
         results_by_program,
         "Duration (normalized)",
         lambda program, parallelism: results_by_program[program][parallelism].clock_duration_s / results_by_program[program][min(results_by_program[program].keys())].clock_duration_s,
-        "build/duration-vs-parallelism.png",
+        f"{output_directory}/duration-vs-parallelism.png",
         grid=False,
         additional_plots=[
             ((
@@ -227,63 +228,89 @@ def report(file_names):
         results_by_program,
         "User time (s)",
         lambda program, parallelism: results_by_program[program][parallelism].user_time_s,
-        "build/user-time-vs-parallelism.png",
+        f"{output_directory}/user-time-vs-parallelism.png",
     )
 
     make_figure_something_vs_parallelism(
         results_by_program,
         "System time (s)",
         lambda program, parallelism: results_by_program[program][parallelism].system_time_s,
-        "build/system-time-vs-parallelism.png",
+        f"{output_directory}/system-time-vs-parallelism.png",
     )
 
     make_figure_something_vs_parallelism(
         results_by_program,
         "Page faults",
         lambda program, parallelism: results_by_program[program][parallelism].minor_page_faults + results_by_program[program][parallelism].major_page_faults,
-        "build/page-faults-vs-parallelism.png",
+        f"{output_directory}/page-faults-vs-parallelism.png",
     )
 
     make_figure_something_vs_parallelism(
         results_by_program,
         "Page faults (/s)",
         lambda program, parallelism: (results_by_program[program][parallelism].minor_page_faults + results_by_program[program][parallelism].major_page_faults) / results_by_program[program][parallelism].clock_duration_s,
-        "build/page-faults-per-sec-vs-parallelism.png",
+        f"{output_directory}/page-faults-per-sec-vs-parallelism.png",
     )
 
     make_figure_something_vs_parallelism(
         results_by_program,
         "Outputs (blocks)",
         lambda program, parallelism: results_by_program[program][parallelism].output_blocks,
-        "build/outputs-vs-parallelism.png",
+        f"{output_directory}/outputs-vs-parallelism.png",
     )
 
     make_figure_something_vs_parallelism(
         results_by_program,
         "Outputs (blocks/s)",
         lambda program, parallelism: results_by_program[program][parallelism].output_blocks / results_by_program[program][parallelism].clock_duration_s,
-        "build/outputs-per-sec-vs-parallelism.png",
+        f"{output_directory}/outputs-per-sec-vs-parallelism.png",
     )
 
     make_figure_something_vs_parallelism(
         results_by_program,
         "Context switches",
         lambda program, parallelism: results_by_program[program][parallelism].involuntary_context_switches + results_by_program[program][parallelism].voluntary_context_switches,
-        "build/context-switches-vs-parallelism.png",
+        f"{output_directory}/context-switches-vs-parallelism.png",
     )
 
     make_figure_something_vs_parallelism(
         results_by_program,
         "Context switches (/s)",
         lambda program, parallelism: (results_by_program[program][parallelism].involuntary_context_switches + results_by_program[program][parallelism].voluntary_context_switches) / results_by_program[program][parallelism].clock_duration_s,
-        "build/context-switches-per-sec-vs-parallelism.png",
+        f"{output_directory}/context-switches-per-sec-vs-parallelism.png",
     )
 
     make_figure_something_vs_time(
         results_by_program,
         "CPU usage (%)",
         lambda instant_metrics: instant_metrics.cpu_percent,
-        "build/instant-cpu-usage.png"
+        f"{output_directory}/instant-cpu-usage.png"
+    )
+
+    make_figure_something_vs_time(
+        results_by_program,
+        "Memory usage (MiB)",
+        lambda instant_metrics: [m["rss"] / (2 ** 20) for m in instant_metrics.memory],
+        f"{output_directory}/instant-memory-usage.png"
+    )
+
+    def outputs_per_sec(instant_metrics):
+        metric_name = "write_bytes"
+        r = [instant_metrics.io[0][metric_name]]
+        for i in range(1, len(instant_metrics.timestamps)):
+            r.append(
+                (instant_metrics.io[i][metric_name] - instant_metrics.io[i - 1][metric_name])
+                /
+                (instant_metrics.timestamps[i] - instant_metrics.timestamps[i - 1])
+            )
+        r = [x / (2 ** 20) for x in r]
+        return r
+
+    make_figure_something_vs_time(
+        results_by_program,
+        "Outputs (MiB/s)",
+        outputs_per_sec,
+        f"{output_directory}/instant-outputs.png"
     )
 
 
