@@ -210,7 +210,7 @@ def report(file_names):
         )
 
     duration_ax.set_xlabel("Parallelism")
-    duration_ax.set_ylabel("Duration (s)")
+    duration_ax.set_ylabel("Duration (normalized)")
     duration_ax.set_xlim(left=1, right=max(all_parallelisms))
     duration_ax.set_ylim(bottom=0, top=1)
     duration_ax.legend()
