@@ -31,7 +31,11 @@ Report
 - `cpu-trigonometry` computes cosines and arc-cosines, also using very little memory
 - `ram-bandwidth-copy` copies a large-ish memory array to another one
 
-## Duration *vs.* parallelism
+## Whole-run metrics
+
+This section presents metrics about the whole run of each program, *e.g.* its duration, the total count of its I/Os, the total number of page faults, *etc.*
+
+### Duration *vs.* parallelism
 
 This graph shows the duration of each program according to the number of threads used to run it.
 Durations are normalized to the single-thread duration.
@@ -40,7 +44,27 @@ The thin dashed lines are representations of [Amdahl's law](https://en.wikipedia
 
 ![Duration vs. parallelism](build/duration-vs-parallelism.png)
 
-On my machine, I can see that:
+Observations:
 - `cpu-multiplication` follows Amdahl's law closely, for $p$=100%: it's purely compute-bound and does benefit from any additional compute resource... until it reaches the number of physical cores in my processor (14). It looses performance on the 15th thread, when hyperthreading is used, then on the 29th thread when it is greater than the number of hyperthread cores.
 - `ram-bandwidth-copy` gains from a second thread, but is quite flat for 3 or more threads: it reaches the RAM's bandwidth and adding compute power doesn't help. It even makes things worse as we can see the duration increasing slowly for 6 threads and more
 - `disk-write` follows Amdahl's law closely for $p$=90% until 8 threads, but flattens for 9 threads and more: it reaches the disk's bandwidth
+
+### System and user times vs. parallelism
+
+![System and user times vs. parallelism](build/times-vs-parallelism.png)
+
+Observations:
+- `cpu-multiplication` has zero system time, as expected. Its user time is globally constant because it always does the same computations. It raises slightly because of the overhead of having several threads.
+- the effect of the numbers of cores (14 physical, 28 logical) is clearly visible on `ram-bandwidth-copy`'s user time, albeit a bit strange
+
+### Page faults vs. parallelism
+
+![Page faults vs. parallelism](build/page-faults-vs-parallelism.png)
+
+### Outputs vs. parallelism
+
+![Outputs vs. parallelism](build/io-vs-parallelism.png)
+
+### Context switches vs. parallelism
+
+![Context switches vs. parallelism](build/context-switches-vs-parallelism.png)
