@@ -56,10 +56,9 @@ def calibrate(program, target_duration, tolerance):
 @click.option("--min-parallelism", default=1)
 @click.option("--max-parallelism", default=int(1.5 * multiprocessing.cpu_count()))
 def run(program, size, min_parallelism, max_parallelism):
-    durations = {}
     for parallelism in range(min_parallelism, max_parallelism + 1):
-        durations[parallelism] = run_monitored([program, size], parallelism).clock_duration_s
-    json.dump(durations, sys.stdout)
+        result = run_monitored([program, size], parallelism)
+        print(json.dumps(dataclasses.asdict(result)))
 
 
 def run_monitored(command, parallelism):
@@ -74,12 +73,14 @@ def run_monitored(command, parallelism):
     clock_duration_s = time_after - time_before
     logging.info(f"Running {command} with {parallelism} threads took {clock_duration_s:.2f}s")
     return MonitoredRunResult(
+        parallelism=parallelism,
         clock_duration_s=clock_duration_s,
     )
 
 
 @dataclasses.dataclass
 class MonitoredRunResult:
+    parallelism: int
     clock_duration_s: float
 
 
@@ -90,13 +91,17 @@ def report(file_names):
     # - it's quite long
     # - it calls a subprocess during initialization, which polutes resource.getrusage
 
-    data = {}
+    results_by_program = {}
     for file_name in file_names:
-        assert file_name.endswith(".json")
+        program = os.path.basename(file_name).split(".")[0]
         with open(file_name) as f:
-            data[os.path.basename(file_name)[:-5]] = {int(k): v for  k, v in json.load(f).items()}
+            results_by_parallelism = {}
+            results_by_program[program] = results_by_parallelism
+            for line in f:
+                result = MonitoredRunResult(**json.loads(line))
+                results_by_parallelism[result.parallelism] = result
 
-    parallelisms = sorted(set(k for d in data.values() for k in d.keys()))
+    parallelisms = sorted(set(k for d in results_by_program.values() for k in d.keys()))
 
     fig, ax = plt.subplots(figsize=(8, 6), layout="constrained")
 
@@ -110,10 +115,18 @@ def report(file_names):
             color="grey",
         )
 
-    for name, durations in data.items():
+    for name, results_by_parallelism in results_by_program.items():
         ax.plot(
-            [parallelism for parallelism in parallelisms if parallelism in durations],
-            [durations[parallelism] / durations[min(parallelisms)] for parallelism in parallelisms if parallelism in durations],
+            [
+                parallelism
+                for parallelism in parallelisms
+                if parallelism in results_by_parallelism
+            ],
+            [
+                results_by_parallelism[parallelism].clock_duration_s / results_by_parallelism[min(parallelisms)].clock_duration_s
+                for parallelism in parallelisms
+                if parallelism in results_by_parallelism
+            ],
             "-o",
             label=name,
         )

@@ -16,8 +16,8 @@ source_files := $(wildcard programs/*.cpp)
 
 # Intermediate files
 binary_files := $(patsubst programs/%.cpp,build/%,$(source_files))
-calibration_files := $(patsubst programs/%.cpp,build/%.size,$(source_files))
-experiment_files := $(patsubst programs/%.cpp,build/%.json,$(source_files))
+calibration_files := $(patsubst programs/%.cpp,build/%.calibrated-size.txt,$(source_files))
+experiment_files := $(patsubst programs/%.cpp,build/%.results.txt,$(source_files))
 
 ###############################
 # Secondary top-level targets #
@@ -30,7 +30,7 @@ report: run
 .PHONY: run
 run: $(experiment_files)
 
-build/%.json: build/%.size
+build/%.results.txt: build/%.calibrated-size.txt
 	@mkdir -p $(dir $@)
 	./bottlenecks.py run $(if $(quick),--max-parallelism 4) build/$* $$(cat $^) >$@.tmp
 	mv $@.tmp $@
@@ -38,7 +38,7 @@ build/%.json: build/%.size
 .PHONY: calibrate
 calibrate: $(calibration_files)
 
-build/%.size: build/%
+build/%.calibrated-size.txt: build/%
 	@mkdir -p $(dir $@)
 	./bottlenecks.py calibrate $(if $(quick),--target-duration 4) $^ >$@.tmp
 	mv $@.tmp $@
