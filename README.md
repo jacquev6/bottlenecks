@@ -1,6 +1,6 @@
 <!-- Copyright 2022 Vincent Jacques -->
 
-'bottlenecks' is an attempt to demonstrate the different performance bottlenecks that can appear in computer programs.
+*bottlenecks* is an attempt to demonstrate the different performance bottlenecks that can appear in computer programs.
 
 It's currently limited to programs running only on a CPU.
 GPUs may be added later.
@@ -18,7 +18,7 @@ Generate your own report
 
 Run `./make.sh` then have a look at the report in `build/report/report.md`.
 
-If you want to store the report somewhere else: `./make.sh reports/**some_name**`. (Do this if you want to add your machine's report to the repository; feel free to open a pull request. In that case, please include all files in that directory.)
+If you want to store the report somewhere else: `./make.sh report_directory=reports/**some_name**`. (Do this if you want to add your machine's report to the repository; feel free to open a pull request. In that case, please include all files in that directory.)
 
 For quicker iterative work on the scripts: `rm -rf build; ./make.sh quick=1`.
 
