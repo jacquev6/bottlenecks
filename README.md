@@ -8,10 +8,11 @@ GPUs may be added later.
 Usage
 =====
 
-Read my report
---------------
+Read my reports
+---------------
 
 The simplest way to "use" this repository is to read [the report generated on my machine](reports/jacquev6-sam/report.md), which I have annotated with a few observations and explanations.
+I've also added a [report generated on another machine](reports/jacquev6-macbook/report.md), but I've not annotated it yet.
 
 Generate your own report
 ------------------------
