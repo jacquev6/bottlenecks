@@ -12,15 +12,7 @@ import psutil
 
 
 def run(*args, **kwds):
-    instant_metrics = MonitoredRunInstantMetrics(
-        timestamps=[],
-        cpu_percent=[],
-        user_time_s=[],
-        system_time_s=[],
-        memory=[],
-        io=[],
-        context_switches=[],
-    )
+    instant_metrics = []
     interval = 0.1
     iteration = 1
 
@@ -42,23 +34,18 @@ def run(*args, **kwds):
             logging.debug(f"{process.cmdline} is still running after {now:.4f}s")
             try:
                 with process.oneshot():
-                    instant_metrics.cpu_percent.append(process.cpu_percent())
                     cpu_times = process.cpu_times()
-                    instant_metrics.user_time_s.append(cpu_times.user)
-                    instant_metrics.system_time_s.append(cpu_times.system)
-                    instant_metrics.memory.append(process.memory_full_info()._asdict())
-                    instant_metrics.io.append(process.io_counters()._asdict())
-                    instant_metrics.context_switches.append(process.num_ctx_switches())
+                    instant_metrics.append(InstantRunMetrics(
+                        timestamp=now,
+                        cpu_percent=process.cpu_percent(),
+                        user_time_s=cpu_times.user,
+                        system_time_s=cpu_times.system,
+                        memory=process.memory_full_info()._asdict(),
+                        io=process.io_counters()._asdict(),
+                        context_switches=process.num_ctx_switches(),
+                    ))
             except (psutil.AccessDenied, psutil.NoSuchProcess):
                 logging.info("Exception (psutil.AccessDenied, psutil.NoSuchProcess) happened")
-                instant_metrics.cpu_percent[:] = instant_metrics.cpu_percent[:len(instant_metrics.timestamps)]
-                instant_metrics.user_time_s[:] = instant_metrics.user_time_s[:len(instant_metrics.timestamps)]
-                instant_metrics.system_time_s[:] = instant_metrics.system_time_s[:len(instant_metrics.timestamps)]
-                instant_metrics.memory[:] = instant_metrics.memory[:len(instant_metrics.timestamps)]
-                instant_metrics.io[:] = instant_metrics.io[:len(instant_metrics.timestamps)]
-                instant_metrics.context_switches[:] = instant_metrics.context_switches[:len(instant_metrics.timestamps)]
-            else:
-                instant_metrics.timestamps.append(now)
         else:
             time_after = time.perf_counter()
 
@@ -66,7 +53,7 @@ def run(*args, **kwds):
 
     clock_duration_s = time_after - time_before
 
-    result = MonitoredRunResult(
+    metrics = RunMetrics(
         clock_duration_s=clock_duration_s,
         # According to https://manpages.debian.org/bullseye/manpages-dev/getrusage.2.en.html,
         # we don't care about these fields:
@@ -84,22 +71,22 @@ def run(*args, **kwds):
         instant_metrics=instant_metrics,
     )
 
-    return (process, result)
+    return (process, metrics)
 
 
 @dataclasses.dataclass
-class MonitoredRunInstantMetrics:
-    timestamps: List[float]
-    cpu_percent: List[float]
-    user_time_s: List[float]
-    system_time_s: List[float]
-    memory: List[Dict]
-    io: List[Dict]
-    context_switches: List[int]
+class InstantRunMetrics:
+    timestamp: float
+    cpu_percent: float
+    user_time_s: float
+    system_time_s: float
+    memory: Dict
+    io: Dict
+    context_switches: int
 
 
 @dataclasses.dataclass  # @todo (Python >= 3.10) Use `kw_only`
-class MonitoredRunResult:
+class RunMetrics:
     clock_duration_s: float
     user_time_s: float
     system_time_s: float
@@ -109,4 +96,4 @@ class MonitoredRunResult:
     output_blocks: int
     voluntary_context_switches: int
     involuntary_context_switches: int
-    instant_metrics: MonitoredRunInstantMetrics
+    instant_metrics: List[InstantRunMetrics]
