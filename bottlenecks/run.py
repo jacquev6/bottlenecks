@@ -51,10 +51,8 @@ def run(*args, **kwds):
 
     usage_after = resource.getrusage(resource.RUSAGE_CHILDREN)
 
-    clock_duration_s = time_after - time_before
-
     metrics = RunMetrics(
-        clock_duration_s=clock_duration_s,
+        clock_duration_s=time_after - time_before,
         # According to https://manpages.debian.org/bullseye/manpages-dev/getrusage.2.en.html,
         # we don't care about these fields:
         #   ru_ixrss ru_idrss ru_isrss ru_nswap ru_msgsnd ru_msgrcv ru_nsignals
