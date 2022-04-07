@@ -1,3 +1,5 @@
 # Copyright 2022 Vincent Jacques
 
 /.venv/
+/bottlenecks.egg-info/
+__pycache__/
