@@ -144,7 +144,7 @@ class Runner:
                         context_switches=process.psutil_process.num_ctx_switches(),
                     ))
             except psutil.AccessDenied:
-                logging.warn("Exception psutil.AccessDenied occurred; going on anyway")
+                logging.warn(f"Exception psutil.AccessDenied occurred for {process.command} at t={self.__iteration * self.__interval}s; going on anyway")
 
         def __gather_children(self, process):
             for child in process.psutil_process.children():
