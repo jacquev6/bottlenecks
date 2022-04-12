@@ -50,6 +50,7 @@ class Process:
     command: List[str]
     spawned_at: float
     terminated_at: float
+    duration: float
     instant_metrics: List[InstantRunMetrics]
     children: List["Process"]
 
@@ -161,10 +162,13 @@ class Runner:
                     process.terminated_at_iteration = self.__iteration
 
         def __return_main_process(self, process):
+            spawned_at = process.spawned_at_iteration * self.__interval
+            terminated_at = process.terminated_at_iteration * self.__interval
             return MainProcess(
                 command=process.command,
-                spawned_at=process.spawned_at_iteration * self.__interval,
-                terminated_at=process.terminated_at_iteration * self.__interval,
+                spawned_at=spawned_at,
+                terminated_at=terminated_at,
+                duration=terminated_at - spawned_at,
                 instant_metrics=self.__return_instant_metrics(process),
                 children=[self.__return_process(child) for child in process.children],
                 # According to https://manpages.debian.org/bullseye/manpages-dev/getrusage.2.en.html,
@@ -197,10 +201,13 @@ class Runner:
             ]
 
         def __return_process(self, process):
+            spawned_at = process.spawned_at_iteration * self.__interval
+            terminated_at = process.terminated_at_iteration * self.__interval
             return Process(
                 command=process.command,
-                spawned_at=process.spawned_at_iteration * self.__interval,
-                terminated_at=process.terminated_at_iteration * self.__interval,
+                spawned_at=spawned_at,
+                terminated_at=terminated_at,
+                duration=terminated_at - spawned_at,
                 instant_metrics=self.__return_instant_metrics(process),
                 children=[self.__return_process(child) for child in process.children],
             )
