@@ -46,17 +46,22 @@ class InstantRunMetrics:
 
 
 @dataclasses.dataclass
+class GlobalMetrics:
+    duration: float
+
+
+@dataclasses.dataclass
 class Process:
     command: List[str]
     spawned_at: float
     terminated_at: float
-    duration: float
     instant_metrics: List[InstantRunMetrics]
     children: List["Process"]
+    global_metrics: GlobalMetrics
 
 
 @dataclasses.dataclass
-class MainProcess(Process):
+class MainProcessGlobalMetrics(GlobalMetrics):
     user_time: float
     system_time: float
     minor_page_faults: int
@@ -65,6 +70,11 @@ class MainProcess(Process):
     output_blocks: int
     voluntary_context_switches: int
     involuntary_context_switches: int
+
+
+@dataclasses.dataclass
+class MainProcess(Process):
+    global_metrics: MainProcessGlobalMetrics
 
 
 class Runner:
@@ -168,22 +178,24 @@ class Runner:
                 command=process.command,
                 spawned_at=spawned_at,
                 terminated_at=terminated_at,
-                duration=terminated_at - spawned_at,
                 instant_metrics=self.__return_instant_metrics(process),
                 children=[self.__return_process(child) for child in process.children],
-                # According to https://manpages.debian.org/bullseye/manpages-dev/getrusage.2.en.html,
-                # we don't care about these fields:
-                #   ru_ixrss ru_idrss ru_isrss ru_nswap ru_msgsnd ru_msgrcv ru_nsignals
-                # And as 'subprocess' uses fork, ru_maxrss often measures the memory usage of the Python
-                # interpreter, so we don't care about that field either.
-                user_time=self.__usage_after.ru_utime - self.__usage_before.ru_utime,
-                system_time=self.__usage_after.ru_stime - self.__usage_before.ru_stime,
-                minor_page_faults=self.__usage_after.ru_minflt - self.__usage_before.ru_minflt,
-                major_page_faults=self.__usage_after.ru_majflt - self.__usage_before.ru_majflt,
-                input_blocks=self.__usage_after.ru_inblock - self.__usage_before.ru_inblock,
-                output_blocks=self.__usage_after.ru_oublock - self.__usage_before.ru_oublock,
-                voluntary_context_switches=self.__usage_after.ru_nvcsw - self.__usage_before.ru_nvcsw,
-                involuntary_context_switches=self.__usage_after.ru_nivcsw - self.__usage_before.ru_nivcsw,
+                global_metrics=MainProcessGlobalMetrics(
+                    duration=terminated_at - spawned_at,
+                    # According to https://manpages.debian.org/bullseye/manpages-dev/getrusage.2.en.html,
+                    # we don't care about these fields:
+                    #   ru_ixrss ru_idrss ru_isrss ru_nswap ru_msgsnd ru_msgrcv ru_nsignals
+                    # And as 'subprocess' uses fork, ru_maxrss often measures the memory usage of the Python
+                    # interpreter, so we don't care about that field either.
+                    user_time=self.__usage_after.ru_utime - self.__usage_before.ru_utime,
+                    system_time=self.__usage_after.ru_stime - self.__usage_before.ru_stime,
+                    minor_page_faults=self.__usage_after.ru_minflt - self.__usage_before.ru_minflt,
+                    major_page_faults=self.__usage_after.ru_majflt - self.__usage_before.ru_majflt,
+                    input_blocks=self.__usage_after.ru_inblock - self.__usage_before.ru_inblock,
+                    output_blocks=self.__usage_after.ru_oublock - self.__usage_before.ru_oublock,
+                    voluntary_context_switches=self.__usage_after.ru_nvcsw - self.__usage_before.ru_nvcsw,
+                    involuntary_context_switches=self.__usage_after.ru_nivcsw - self.__usage_before.ru_nivcsw,
+                ),
             )
 
         def __return_instant_metrics(self, process):
@@ -207,7 +219,9 @@ class Runner:
                 command=process.command,
                 spawned_at=spawned_at,
                 terminated_at=terminated_at,
-                duration=terminated_at - spawned_at,
                 instant_metrics=self.__return_instant_metrics(process),
                 children=[self.__return_process(child) for child in process.children],
+                global_metrics=GlobalMetrics(
+                    duration=terminated_at - spawned_at,
+                )
             )
