@@ -16,8 +16,8 @@ import psutil
 class MonitoredInstantRunMetrics:
     iteration: int
     cpu_percent: float
-    user_time_s: float
-    system_time_s: float
+    user_time: float
+    system_time: float
     memory: psutil._pslinux.pfullmem
     io: psutil._pslinux.pio
     context_switches: psutil._common.pctxsw
@@ -38,8 +38,8 @@ class MonitoredProcess:
 class InstantRunMetrics:
     timestamp: float
     cpu_percent: float
-    user_time_s: float
-    system_time_s: float
+    user_time: float
+    system_time: float
     memory: Dict
     io: Dict
     context_switches: Dict
@@ -57,8 +57,8 @@ class Process:
 
 @dataclasses.dataclass
 class MainProcess(Process):
-    user_time_s: float
-    system_time_s: float
+    user_time: float
+    system_time: float
     minor_page_faults: int
     major_page_faults: int
     input_blocks: int
@@ -137,8 +137,8 @@ class Runner:
                     process.instant_metrics.append(MonitoredInstantRunMetrics(
                         iteration=self.__iteration,
                         cpu_percent=process.psutil_process.cpu_percent(),
-                        user_time_s=cpu_times.user,
-                        system_time_s=cpu_times.system,
+                        user_time=cpu_times.user,
+                        system_time=cpu_times.system,
                         memory=process.psutil_process.memory_full_info(),
                         io=process.psutil_process.io_counters(),
                         context_switches=process.psutil_process.num_ctx_switches(),
@@ -176,8 +176,8 @@ class Runner:
                 #   ru_ixrss ru_idrss ru_isrss ru_nswap ru_msgsnd ru_msgrcv ru_nsignals
                 # And as 'subprocess' uses fork, ru_maxrss often measures the memory usage of the Python
                 # interpreter, so we don't care about that field either.
-                user_time_s=self.__usage_after.ru_utime - self.__usage_before.ru_utime,
-                system_time_s=self.__usage_after.ru_stime - self.__usage_before.ru_stime,
+                user_time=self.__usage_after.ru_utime - self.__usage_before.ru_utime,
+                system_time=self.__usage_after.ru_stime - self.__usage_before.ru_stime,
                 minor_page_faults=self.__usage_after.ru_minflt - self.__usage_before.ru_minflt,
                 major_page_faults=self.__usage_after.ru_majflt - self.__usage_before.ru_majflt,
                 input_blocks=self.__usage_after.ru_inblock - self.__usage_before.ru_inblock,
@@ -191,8 +191,8 @@ class Runner:
                 InstantRunMetrics(
                     timestamp=m.iteration * self.__interval,
                     cpu_percent=m.cpu_percent,
-                    user_time_s=m.user_time_s,
-                    system_time_s=m.system_time_s,
+                    user_time=m.user_time,
+                    system_time=m.system_time,
                     memory=m.memory._asdict(),
                     io=m.io._asdict(),
                     context_switches=m.context_switches._asdict(),
