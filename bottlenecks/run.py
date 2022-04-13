@@ -74,6 +74,7 @@ class MainProcessGlobalMetrics(GlobalMetrics):
 
 @dataclasses.dataclass
 class MainProcess(Process):
+    exit_code: int
     global_metrics: MainProcessGlobalMetrics
 
 
@@ -116,7 +117,7 @@ class Runner:
                     # Main process has terminated
                     self.__terminate()
 
-            return self.__return_main_process(main_process)
+            return self.__return_main_process(main_process, main_process.psutil_process.returncode)
 
         def __start_monitoring_process(self, psutil_process):
             psutil_process.cpu_percent()  # Ignore first, meaningless 0.0 returned, as per https://psutil.readthedocs.io/en/latest/#psutil.Process.cpu_percent
@@ -174,7 +175,7 @@ class Runner:
                 if process.terminated_at_iteration is None:
                     process.terminated_at_iteration = self.__iteration
 
-        def __return_main_process(self, process):
+        def __return_main_process(self, process, exit_code):
             spawned_at = process.spawned_at_iteration * self.__interval
             terminated_at = process.terminated_at_iteration * self.__interval
             return MainProcess(
@@ -183,6 +184,7 @@ class Runner:
                 terminated_at=terminated_at,
                 instant_metrics=self.__return_instant_metrics(process),
                 children=[self.__return_process(child) for child in process.children],
+                exit_code=exit_code,
                 global_metrics=MainProcessGlobalMetrics(
                     duration=terminated_at - spawned_at,
                     # According to https://manpages.debian.org/bullseye/manpages-dev/getrusage.2.en.html,
