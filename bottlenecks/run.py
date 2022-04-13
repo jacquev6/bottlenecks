@@ -15,10 +15,12 @@ import psutil
 @dataclasses.dataclass
 class MonitoredInstantRunMetrics:
     iteration: int
+    threads: int
     cpu_percent: float
     user_time: float
     system_time: float
     memory: psutil._pslinux.pfullmem
+    open_files: int
     io: psutil._pslinux.pio
     context_switches: psutil._common.pctxsw
 
@@ -37,10 +39,12 @@ class MonitoredProcess:
 @dataclasses.dataclass
 class InstantRunMetrics:
     timestamp: float
+    threads: int
     cpu_percent: float
     user_time: float
     system_time: float
     memory: Dict
+    open_files: int
     io: Dict
     context_switches: Dict
 
@@ -155,10 +159,12 @@ class Runner:
                     cpu_times = process.psutil_process.cpu_times()
                     process.instant_metrics.append(MonitoredInstantRunMetrics(
                         iteration=self.__iteration,
+                        threads=process.psutil_process.num_threads(),
                         cpu_percent=process.psutil_process.cpu_percent(),
                         user_time=cpu_times.user,
                         system_time=cpu_times.system,
                         memory=process.psutil_process.memory_full_info(),
+                        open_files=len(process.psutil_process.open_files()),
                         io=process.psutil_process.io_counters(),
                         context_switches=process.psutil_process.num_ctx_switches(),
                     ))
@@ -212,10 +218,12 @@ class Runner:
             return [
                 InstantRunMetrics(
                     timestamp=m.iteration * self.__interval,
+                    threads=m.threads,
                     cpu_percent=m.cpu_percent,
                     user_time=m.user_time,
                     system_time=m.system_time,
                     memory=m.memory._asdict(),
+                    open_files=m.open_files,
                     io=m.io._asdict(),
                     context_switches=m.context_switches._asdict(),
                 )
