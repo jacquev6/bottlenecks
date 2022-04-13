@@ -101,10 +101,13 @@ class Runner:
             main_process = self.__start_monitoring_process(main_process)
 
             while main_process.psutil_process.returncode is None:
-                self.__iteration += 1
-                try:
+                while True:
+                    self.__iteration += 1
                     timeout = spawn_time + self.__iteration * self.__interval - time.perf_counter()
-                    assert timeout > 0, "Monitoring is too slow, try increasing the monitoring interval"
+                    if timeout > 0:
+                        break
+                    logging.warn(f"Monitoring is slow. All instant metrics will be missing at t={self.__iteration * self.__interval}s.")
+                try:
                     main_process.psutil_process.communicate(timeout=timeout)
                 except subprocess.TimeoutExpired:
                     # Main process is still running
@@ -154,7 +157,7 @@ class Runner:
                         context_switches=process.psutil_process.num_ctx_switches(),
                     ))
             except psutil.AccessDenied:
-                logging.warn(f"Exception psutil.AccessDenied occurred for {process.command} at t={self.__iteration * self.__interval}s; going on anyway")
+                logging.warn(f"Exception 'psutil.AccessDenied' occurred. Instant metrics for {process.command} will be missing at t={self.__iteration * self.__interval}s.")
 
         def __gather_children(self, process):
             for child in process.psutil_process.children():
