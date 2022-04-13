@@ -79,10 +79,15 @@ class MainProcess(Process):
 
 
 class Runner:
-    def __init__(self, interval=0.1):
+    def __init__(self, interval=0.1, clear_io_caches=True):
         self.__interval = interval
+        self.__clear_io_caches = clear_io_caches
 
     def run(self, *args, **kwds):
+        if self.__clear_io_caches:
+            # https://stackoverflow.com/a/25336215/905845
+            subprocess.run("sync; echo 3 | sudo tee /proc/sys/vm/drop_caches", shell=True, check=True, capture_output=True)
+
         return self.__Run(self.__interval, *args, **kwds)()
 
     class __Run:
