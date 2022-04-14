@@ -12,10 +12,10 @@ default: build
 #############
 
 # Source files
-source_files := $(wildcard *.cpp)
+source_files := $(wildcard *.cpp) $(wildcard *.cu)
 
 # Intermediate files
-binary_files := $(patsubst %.cpp,build/%,$(source_files))
+binary_files := $(patsubst %.cu,build/%,$(patsubst %.cpp,build/%,$(source_files)))
 
 ###############################
 # Secondary top-level targets #
@@ -26,4 +26,8 @@ build: $(binary_files)
 
 build/%: %.cpp
 	@mkdir -p $(dir $@)
-	g++ -std=c++17 -Wall -Wextra -pedantic -fopenmp -O3 $^ -o $@
+	g++ -std=c++17 -Wall -Wextra -Werror -pedantic -fopenmp -O3 $^ -o $@
+
+build/%: %.cu
+	@mkdir -p $(dir $@)
+	nvcc -std=c++17  -Xcompiler -Wall,-Wextra,-Werror -O3 $^ -o $@
