@@ -23,8 +23,8 @@ class InProgressInstantRunMetrics:
     open_files: int
     io: psutil._pslinux.pio
     context_switches: psutil._common.pctxsw
-    gpu_percent: float
-    gpu_memory: int
+    gpu_percent: Optional[float]
+    gpu_memory: Optional[int]
 
 
 @dataclasses.dataclass
@@ -36,6 +36,13 @@ class InProgressProcess:
     children: List["InProgressProcess"]
     instant_metrics: List[InProgressInstantRunMetrics]
     terminated_at_iteration: Optional[int]
+
+
+@dataclasses.dataclass
+class InProgressSystemInstantMetrics:
+    iteration: int
+    host_to_device_transfer_rate: float
+    device_to_host_transfer_rate: float
 
 
 @dataclasses.dataclass
@@ -86,8 +93,26 @@ class MainProcess(Process):
     global_metrics: MainProcessGlobalMetrics
 
 
+@dataclasses.dataclass
+class SystemInstantMetrics:
+    timestamp: float
+    host_to_device_transfer_rate: float
+    device_to_host_transfer_rate: float
+
+
+@dataclasses.dataclass
+class SystemMetrics:
+    instant_metrics: List[SystemInstantMetrics]
+
+
+@dataclasses.dataclass
+class RunResults:
+    system: SystemMetrics
+    main_process: MainProcess
+
+
 class Runner:
-    def __init__(self, interval=0.1, clear_io_caches=True):
+    def __init__(self, interval=0.2, clear_io_caches=True):
         self.__interval = interval
         self.__clear_io_caches = clear_io_caches
 
@@ -107,6 +132,7 @@ class Runner:
             self.__usage_before = resource.getrusage(resource.RUSAGE_CHILDREN)
             self.__iteration = 0
             self.__monitored_processes = {}
+            self.__system_instant_metrics = []
             self.__usage_after = None
 
         def __call__(self):
@@ -130,7 +156,17 @@ class Runner:
                     # Main process has terminated
                     self.__terminate()
 
-            return self.__return_main_process(main_process, main_process.psutil_process.returncode)
+            return RunResults(
+                system=SystemMetrics(instant_metrics=[
+                    SystemInstantMetrics(
+                        timestamp=m.iteration * self.__interval,
+                        host_to_device_transfer_rate=m.host_to_device_transfer_rate,
+                        device_to_host_transfer_rate=m.device_to_host_transfer_rate,
+                    )
+                    for m in self.__system_instant_metrics
+                ]),
+                main_process=self.__return_main_process(main_process, main_process.psutil_process.returncode),
+            )
 
         def __start_monitoring_process(self, psutil_process):
             psutil_process.cpu_percent()  # Ignore first, meaningless 0.0 returned, as per https://psutil.readthedocs.io/en/latest/#psutil.Process.cpu_percent
@@ -150,17 +186,23 @@ class Runner:
             return child
 
         def __run_monitoring_iteration(self):
-            (gpu_percent, gpu_memory) = self.__gather_gpu_metrics()
+            # Start sub-processes as early as possible to give them time to run while we do other stuff
+            nvidia_smi_dmon = subprocess.Popen(["nvidia-smi", "dmon", "-c", "1", "-s", "t"], stdout=subprocess.PIPE, universal_newlines=True)
+            nvidia_smi_pmon = subprocess.Popen(["nvidia-smi", "pmon", "-c", "1", "-s", "um"], stdout=subprocess.PIPE, universal_newlines=True)
+
             for process in list(self.__monitored_processes.values()):
                 try:
-                    self.__gather_instant_metrics(process, gpu_percent, gpu_memory)
+                    self.__gather_instant_metrics(process)
                     self.__gather_children(process)
                 except psutil.NoSuchProcess:
                     self.__stop_monitoring_process(process)
 
-        def __gather_gpu_metrics(self):
-            nvidia_smi = subprocess.run(["nvidia-smi", "pmon", "-c", "1", "-s", "um"], check=True, capture_output=True, universal_newlines=True)
-            lines = nvidia_smi.stdout.splitlines()
+            # Use subprocesses as late as possible
+            self.__gather_gpu_metrics(nvidia_smi_dmon, nvidia_smi_pmon)
+
+        def __gather_gpu_metrics(self, nvidia_smi_dmon, nvidia_smi_pmon):
+            (nvidia_smi_pmon_stdout, _) = nvidia_smi_pmon.communicate()
+            lines = nvidia_smi_pmon_stdout.splitlines()
             parts = lines[0].split()
             assert parts[0] == "#"
             parts = parts[1:]
@@ -168,24 +210,43 @@ class Runner:
             assert parts[3] == "sm"
             assert parts[7] == "fb"
 
-            gpu_percent = {}
-            gpu_memory = {}
-
             for line in lines[2:]:
                 parts = line.split()
                 pid = int(parts[1])
-                try:
-                    gpu_percent[pid] = float(parts[3])
-                except ValueError:
-                    pass
-                try:
-                    gpu_memory[pid] = float(parts[7])
-                except ValueError:
-                    pass
+                process = self.__monitored_processes.get(pid)
+                if process is not None:
+                    metrics = process.instant_metrics[-1]
+                    if metrics.iteration == self.__iteration:
+                        try:
+                            metrics.gpu_percent = float(parts[3])
+                        except ValueError:
+                            metrics.gpu_percent = 0.
+                        try:
+                            metrics.gpu_memory = float(parts[7])
+                        except ValueError:
+                            metrics.gpu_memory = 0.
 
-            return gpu_percent, gpu_memory
+            (nvidia_smi_dmon_stdout, _) = nvidia_smi_dmon.communicate()
 
-        def __gather_instant_metrics(self, process, gpu_percent, gpu_memory):
+            lines = nvidia_smi_dmon_stdout.splitlines()
+            parts = lines[0].split()
+            assert parts[0] == "#"
+            parts = parts[1:]
+            assert parts[0] == "gpu"
+            assert parts[1] == "rxpci"
+            assert parts[2] == "txpci"
+
+            assert len(lines) == 3  # Only a single device is supported
+            parts = lines[2].split()
+
+            self.__system_instant_metrics.append(InProgressSystemInstantMetrics(
+                iteration=self.__iteration,
+                host_to_device_transfer_rate=float(parts[1]),
+                device_to_host_transfer_rate=float(parts[2]),
+            ))
+
+
+        def __gather_instant_metrics(self, process):
             try:
                 with process.psutil_process.oneshot():
                     cpu_times = process.psutil_process.cpu_times()
@@ -199,8 +260,8 @@ class Runner:
                         open_files=len(process.psutil_process.open_files()),
                         io=process.psutil_process.io_counters(),
                         context_switches=process.psutil_process.num_ctx_switches(),
-                        gpu_percent=gpu_percent.get(process.pid, 0.),
-                        gpu_memory=gpu_memory.get(process.pid, 0),
+                        gpu_percent=None,
+                        gpu_memory=None,
                     ))
             except psutil.AccessDenied:
                 logging.warn(f"Exception 'psutil.AccessDenied' occurred. Instant metrics for {process.command} will be missing at t={self.__iteration * self.__interval}s.")
