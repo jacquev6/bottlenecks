@@ -150,8 +150,7 @@ class Runner:
             return child
 
         def __run_monitoring_iteration(self):
-            gpu_percent = self.__gather_gpu_metric(["-s", "u"])
-            gpu_memory = self.__gather_gpu_metric(["-s", "m"])
+            (gpu_percent, gpu_memory) = self.__gather_gpu_metrics()
             for process in list(self.__monitored_processes.values()):
                 try:
                     self.__gather_instant_metrics(process, gpu_percent, gpu_memory)
@@ -159,21 +158,32 @@ class Runner:
                 except psutil.NoSuchProcess:
                     self.__stop_monitoring_process(process)
 
-        def __gather_gpu_metric(self, options):
-            nvidia_smi = subprocess.run(["nvidia-smi", "pmon", "-c", "1"] + options, check=True, capture_output=True, universal_newlines=True)
+        def __gather_gpu_metrics(self):
+            nvidia_smi = subprocess.run(["nvidia-smi", "pmon", "-c", "1", "-s", "um"], check=True, capture_output=True, universal_newlines=True)
+            lines = nvidia_smi.stdout.splitlines()
+            parts = lines[0].split()
+            assert parts[0] == "#"
+            parts = parts[1:]
+            assert parts[1] == "pid"
+            assert parts[3] == "sm"
+            assert parts[7] == "fb"
 
-            def gen():
-                for line in nvidia_smi.stdout.splitlines()[2:]:
-                    parts = line.split()
-                    pid = int(parts[1])
-                    try:
-                        metric = float(parts[3])
-                    except ValueError:
-                        pass
-                    else:
-                        yield (pid, metric)
+            gpu_percent = {}
+            gpu_memory = {}
 
-            return dict(gen())
+            for line in lines[2:]:
+                parts = line.split()
+                pid = int(parts[1])
+                try:
+                    gpu_percent[pid] = float(parts[3])
+                except ValueError:
+                    pass
+                try:
+                    gpu_memory[pid] = float(parts[7])
+                except ValueError:
+                    pass
+
+            return gpu_percent, gpu_memory
 
         def __gather_instant_metrics(self, process, gpu_percent, gpu_memory):
             try:
