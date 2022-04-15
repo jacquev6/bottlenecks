@@ -13,7 +13,7 @@ import psutil
 
 
 @dataclasses.dataclass
-class MonitoredInstantRunMetrics:
+class InProgressInstantRunMetrics:
     iteration: int
     threads: int
     cpu_percent: float
@@ -28,13 +28,13 @@ class MonitoredInstantRunMetrics:
 
 
 @dataclasses.dataclass
-class MonitoredProcess:
+class InProgressProcess:
     psutil_process: psutil.Process
     pid: int
     command: List[str]
     spawned_at_iteration: int
-    children: List["MonitoredProcess"]
-    instant_metrics: List[MonitoredInstantRunMetrics]
+    children: List["InProgressProcess"]
+    instant_metrics: List[InProgressInstantRunMetrics]
     terminated_at_iteration: Optional[int]
 
 
@@ -134,7 +134,7 @@ class Runner:
 
         def __start_monitoring_process(self, psutil_process):
             psutil_process.cpu_percent()  # Ignore first, meaningless 0.0 returned, as per https://psutil.readthedocs.io/en/latest/#psutil.Process.cpu_percent
-            child = MonitoredProcess(
+            child = InProgressProcess(
                 psutil_process=psutil_process,
                 pid=psutil_process.pid,
                 command=psutil_process.cmdline(),
@@ -189,7 +189,7 @@ class Runner:
             try:
                 with process.psutil_process.oneshot():
                     cpu_times = process.psutil_process.cpu_times()
-                    process.instant_metrics.append(MonitoredInstantRunMetrics(
+                    process.instant_metrics.append(InProgressInstantRunMetrics(
                         iteration=self.__iteration,
                         threads=process.psutil_process.num_threads(),
                         cpu_percent=process.psutil_process.cpu_percent(),
