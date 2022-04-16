@@ -112,7 +112,7 @@ class RunResults:
 
 
 class Runner:
-    def __init__(self, interval=0.2, clear_io_caches=True):
+    def __init__(self, *, interval, clear_io_caches=True):
         self.__interval = interval
         self.__clear_io_caches = clear_io_caches
 
