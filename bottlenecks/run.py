@@ -197,7 +197,7 @@ class Runner:
                 except psutil.NoSuchProcess:
                     self.__stop_monitoring_process(process)
 
-            # Use subprocesses as late as possible
+            # Use sub-processes as late as possible
             self.__gather_gpu_metrics(nvidia_smi_dmon, nvidia_smi_pmon)
 
         def __gather_gpu_metrics(self, nvidia_smi_dmon, nvidia_smi_pmon):
@@ -214,7 +214,7 @@ class Runner:
                 parts = line.split()
                 pid = int(parts[1])
                 process = self.__monitored_processes.get(pid)
-                if process is not None:
+                if process is not None and len(process.instant_metrics) != 0:
                     metrics = process.instant_metrics[-1]
                     if metrics.iteration == self.__iteration:
                         try:
