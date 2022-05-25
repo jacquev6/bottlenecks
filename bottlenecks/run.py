@@ -112,8 +112,9 @@ class RunResults:
 
 
 class Runner:
-    def __init__(self, *, interval, clear_io_caches=True):
+    def __init__(self, *, interval, allowed_missing_samples=1, clear_io_caches=True):
         self.__interval = interval
+        self.__allowed_missing_samples = allowed_missing_samples
         self.__clear_io_caches = clear_io_caches
 
     def run(self, *args, **kwds):
@@ -121,11 +122,12 @@ class Runner:
             # https://stackoverflow.com/a/25336215/905845
             subprocess.run("sync; echo 3 | sudo tee /proc/sys/vm/drop_caches", shell=True, check=True, capture_output=True)
 
-        return self.__Run(self.__interval, *args, **kwds)()
+        return self.__Run(self.__interval, self.__allowed_missing_samples, *args, **kwds)()
 
     class __Run:
-        def __init__(self, interval, *args, **kwds):
+        def __init__(self, interval, allowed_missing_samples, *args, **kwds):
             self.__interval = interval
+            self.__allowed_missing_samples = allowed_missing_samples
             self.__args = args
             self.__kwds = kwds
 
@@ -141,12 +143,15 @@ class Runner:
             main_process = self.__start_monitoring_process(main_process)
 
             while main_process.psutil_process.returncode is None:
+                iteration_before = self.__iteration
                 while True:
                     self.__iteration += 1
                     timeout = spawn_time + self.__iteration * self.__interval - time.perf_counter()
                     if timeout > 0:
                         break
-                    logging.warn(f"Monitoring is slow. All instant metrics will be missing at t={self.__iteration * self.__interval}s.")
+                missing_samples = self.__iteration - iteration_before - 1
+                if missing_samples > self.__allowed_missing_samples:
+                    logging.warn(f"Monitoring is slow. {missing_samples} samples will be missing between t={(iteration_before + 1) * self.__interval:.3f}s and t={(self.__iteration - 1) * self.__interval:.3f}s included.")
                 try:
                     main_process.psutil_process.communicate(timeout=timeout)
                 except subprocess.TimeoutExpired:
